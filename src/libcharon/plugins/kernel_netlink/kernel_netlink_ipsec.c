@@ -1394,6 +1394,8 @@ static bool netlink_detect_offload(const char *ifname)
 	int block;
 	bool ret = FALSE;
 
+	printf("[AY] inside netlink_detect_offload %s\n", ifname );
+
 	if (!netlink_hw_offload.supported)
 	{
 		DBG1(DBG_KNL, "HW offload is not supported by kernel");
@@ -1419,6 +1421,8 @@ static bool netlink_detect_offload(const char *ifname)
 	{
 		block = netlink_hw_offload.bit / 32;
 		feature_bit = 1U << (netlink_hw_offload.bit % 32);
+		printf("[AY] block=%d, netlink_hw_offload.bit=%d, 	\
+			feature_bit=%X\n", block, netlink_hw_offload.bit, feature_bit );
 		if (cmd->features[block].active & feature_bit)
 		{
 			ret = TRUE;
@@ -1448,13 +1452,15 @@ static bool netlink_detect_offload(const char *ifname)
 #endif
 
 /**
- * There are 3 HW offload configuration values:
+ * There are 4 HW offload configuration values:
  * 1. HW_OFFLOAD_NO   : Do not configure HW offload.
  * 2. HW_OFFLOAD_YES  : Configure HW offload.
  *                      Fail SA addition if offload is not supported.
  * 3. HW_OFFLOAD_AUTO : Configure HW offload if supported by the kernel
  *                      and device.
  *                      Do not fail SA addition otherwise.
+ * 4. HW_OFFLOAD_FULL : Configure HW FULL offload if supported by the kernel
+ *                      Fail SA addition if offload is not supported.
  */
 static bool config_hw_offload(kernel_ipsec_sa_id_t *id,
 							  kernel_ipsec_add_sa_t *data, struct nlmsghdr *hdr,
@@ -1465,13 +1471,16 @@ static bool config_hw_offload(kernel_ipsec_sa_id_t *id,
 	bool hw_offload_yes, ret = FALSE;
 	char *ifname;
 
+	printf("[AY] inside config_hw_offload" );
+
 	/* do Ipsec configuration without offload */
 	if (data->hw_offload == HW_OFFLOAD_NO)
 	{
 		return TRUE;
 	}
 
-	hw_offload_yes = (data->hw_offload == HW_OFFLOAD_YES);
+	hw_offload_yes = ( (data->hw_offload == HW_OFFLOAD_YES) ||
+			   (data->hw_offload == HW_OFFLOAD_FULL) );
 
 	if (!charon->kernel->get_interface(charon->kernel, local, &ifname))
 	{
@@ -1487,7 +1496,8 @@ static bool config_hw_offload(kernel_ipsec_sa_id_t *id,
 
 	/* activate HW offload */
 	offload = netlink_reserve(hdr, buflen,
-							  XFRMA_OFFLOAD_DEV, sizeof(*offload));
+				  XFRMA_OFFLOAD_DEV, sizeof(*offload));
+	printf("[AY]:config_hw_offload: netlink_reserve return %d\n", offload );
 	if (!offload)
 	{
 		ret = !hw_offload_yes;
@@ -1499,6 +1509,13 @@ static bool config_hw_offload(kernel_ipsec_sa_id_t *id,
 		offload->flags |= XFRM_OFFLOAD_IPV6;
 	}
 	offload->flags |= data->inbound ? XFRM_OFFLOAD_INBOUND : 0;
+
+	/* activate full HW offload */
+	if ( data->hw_offload == HW_OFFLOAD_FULL )
+	{
+		offload->flags |= XFRM_OFFLOAD_FULL;
+	}
+	printf("[AY]:config_hw_offload: flags=%x\n", offload->flags );
 
 	ret = TRUE;
 

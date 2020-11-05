@@ -1031,14 +1031,18 @@ CALLBACK(parse_hw_offload, bool,
 		{ "no",		HW_OFFLOAD_NO	},
 		{ "yes",	HW_OFFLOAD_YES	},
 		{ "auto",	HW_OFFLOAD_AUTO	},
+		{ "full",	HW_OFFLOAD_FULL	},
 	};
 	int d;
 
 	if (parse_map(map, countof(map), &d, v))
 	{
+		printf("[AY]:parse_hw_offload: found value=%s\n", map[d].str );
 		*out = d;
 		return TRUE;
 	}
+	
+	printf("[AY]:parse_hw_offload: found invalid key for hw_offload\n" ); 
 	return FALSE;
 }
 
